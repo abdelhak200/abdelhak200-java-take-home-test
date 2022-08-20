@@ -15,23 +15,28 @@ import java.util.LongSummaryStatistics;
 import java.util.Set;
 
 import org.decimal4j.util.DoubleRounder;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import ch.ben.hellofreash.model.Event;
+import ch.ben.hellofreash.repository.IEventRepo;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 @Service
-public class EventService {
+public class EventService implements IEventService{
 
-	private List<List<Event>> listOfListEvents = Collections.synchronizedList(new ArrayList<List<Event>>());
-
+	@Autowired
+	private final IEventRepo eventRepo ;
+	
 	private final int INTERVAL_BY_SECONDS = 60;
 	private final int NUMBER_OF_COLUMN = 3;
 	private final String DELIMITER = ",";
 
-	public ResponseEntity<String> getEvent(MultipartFile file) {
+	public ResponseEntity<String> getEvent(MultipartFile file) throws IOException {
 
 		Set<String> notValidEvents = Collections.synchronizedSet(new LinkedHashSet<String>());
 		List<Event> validEvents = Collections.synchronizedList(new ArrayList<Event>());
@@ -64,13 +69,15 @@ public class EventService {
 				}
 
 				validEvents.sort(Comparator.comparing(Event::getTime));
-				listOfListEvents = splitList(validEvents);
+				
+				eventRepo.setListOfListEvents(splitList(validEvents));
 
+			}catch (IOException e) {
+				throw new IOException("An error occurred while processing the file");
 			} catch (NumberFormatException e) {
 				throw new NumberFormatException("Number Format Exception");
-			} catch (IOException ex) {
-				return new ResponseEntity<String>("An error occurred while processing the file.",
-						HttpStatus.INTERNAL_SERVER_ERROR);
+			}  catch (IllegalArgumentException e) {
+				throw new IllegalArgumentException("Illegal Argument Exception");
 			}
 		}
 		return notValidEvents.size() > 0
@@ -152,7 +159,4 @@ public class EventService {
 		}
 	}
 
-	public List<List<Event>> getEvents() {
-		return listOfListEvents;
-	}
 }
